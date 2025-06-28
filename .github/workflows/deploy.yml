@@ -1,30 +1,33 @@
-# .github/workflows/deploy.yml
-name: Deploy to Netlify
+name: Deploy React App to EC2
 
 on:
   push:
     branches:
-      - main # Trigger on push to main branch
+      - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build project
-        run: npm run build
-
-      - name: Deploy to Netlify
-        uses: nwtgck/actions-netlify@v2.0
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          publish-dir: ./build
-          production-branch: main
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          netlify-auth-token: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          netlify-site-id: ${{ secrets.NETLIFY_SITE_ID }}
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd ~/react-app
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/harshalif/devops_session3.git .
+            else
+              git pull origin main
+            fi
+            npm install
+            npm run build
+            npx serve -s build -l 3000 &
+          EOF
